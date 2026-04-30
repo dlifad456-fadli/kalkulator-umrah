@@ -21,6 +21,15 @@ import {
   FileText
 } from 'lucide-react';
 
+const formatNumberWithSeparator = (val) => {
+  if (val === '' || val === null || val === undefined) return '';
+  const numeric = Number(String(val).replace(/[^\d]/g, ''));
+  if (Number.isNaN(numeric)) return '';
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(numeric);
+};
+
+const sanitizeNumericInput = (val) => String(val ?? '').replace(/[^\d]/g, '');
+
 const App = () => {
   const [rates, setRates] = useState({
     sar: 4200,
@@ -279,10 +288,9 @@ const App = () => {
               <div className="flex items-center gap-2 bg-emerald-100/50 border border-emerald-200 px-3 py-1.5 rounded-full shadow-sm">
                 <CalendarDays className="w-4 h-4 text-emerald-700" />
                 <span className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Paket</span>
-                <input
-                  type="number"
+                <NumericInput
                   value={inputs.totalDays}
-                  onChange={(e) => handleInputChange('totalDays', e.target.value)}
+                  onChange={(value) => handleInputChange('totalDays', value)}
                   className="w-10 bg-transparent font-black text-emerald-900 focus:outline-none text-center border-b border-emerald-400/50"
                 />
                 <span className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Hari</span>
@@ -308,12 +316,7 @@ const App = () => {
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kurs SAR</label>
                 <div className="flex items-center gap-1">
                   <span className="text-slate-400 font-medium">Rp</span>
-                  <input
-                    type="number"
-                    value={rates.sar}
-                    onChange={(e) => handleRateChange('sar', e.target.value)}
-                    className="w-20 font-bold focus:outline-none"
-                  />
+                  <NumericInput value={rates.sar} onChange={(value) => handleRateChange('sar', value)} className="w-20 font-bold focus:outline-none" />
                 </div>
               </div>
               <div className="w-px bg-slate-200 self-stretch" />
@@ -321,12 +324,7 @@ const App = () => {
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kurs USD</label>
                 <div className="flex items-center gap-1">
                   <span className="text-slate-400 font-medium">Rp</span>
-                  <input
-                    type="number"
-                    value={rates.usd}
-                    onChange={(e) => handleRateChange('usd', e.target.value)}
-                    className="w-24 font-bold focus:outline-none"
-                  />
+                  <NumericInput value={rates.usd} onChange={(value) => handleRateChange('usd', value)} className="w-24 font-bold focus:outline-none" />
                 </div>
               </div>
               <button
@@ -367,19 +365,17 @@ const App = () => {
                     onChange={(e) => handleInputChange('makkHotelName', e.target.value)}
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
+                    <NumericInput
                       className="w-full p-2 bg-slate-50 border rounded-lg outline-none"
                       placeholder="Hari"
                       value={inputs.makkDays}
-                      onChange={(e) => handleInputChange('makkDays', e.target.value)}
+                      onChange={(value) => handleInputChange('makkDays', value)}
                     />
-                    <input
-                      type="number"
+                    <NumericInput
                       className="w-full p-2 bg-slate-50 border rounded-lg outline-none"
                       placeholder="SAR"
                       value={inputs.makkPriceSar}
-                      onChange={(e) => handleInputChange('makkPriceSar', e.target.value)}
+                      onChange={(value) => handleInputChange('makkPriceSar', value)}
                     />
                   </div>
                 </div>
@@ -395,19 +391,17 @@ const App = () => {
                     onChange={(e) => handleInputChange('madiHotelName', e.target.value)}
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
+                    <NumericInput
                       className="w-full p-2 bg-slate-50 border rounded-lg outline-none"
                       placeholder="Hari"
                       value={inputs.madiDays}
-                      onChange={(e) => handleInputChange('madiDays', e.target.value)}
+                      onChange={(value) => handleInputChange('madiDays', value)}
                     />
-                    <input
-                      type="number"
+                    <NumericInput
                       className="w-full p-2 bg-slate-50 border rounded-lg outline-none"
                       placeholder="SAR"
                       value={inputs.madiPriceSar}
-                      onChange={(e) => handleInputChange('madiPriceSar', e.target.value)}
+                      onChange={(value) => handleInputChange('madiPriceSar', value)}
                     />
                   </div>
                 </div>
@@ -473,12 +467,11 @@ const App = () => {
                       />
                     </div>
                     <div className="col-span-5 relative">
-                      <input
-                        type="number"
+                      <NumericInput
                         placeholder="Harga IDR"
                         className="w-full p-2 bg-white border rounded-lg pl-8 text-sm"
                         value={service.price}
-                        onChange={(e) => handleExtraServiceChange(service.id, 'price', e.target.value)}
+                        onChange={(value) => handleExtraServiceChange(service.id, 'price', value)}
                       />
                       <span className="absolute left-2 top-2.5 text-[10px] font-bold text-slate-300">RP</span>
                     </div>
@@ -699,15 +692,26 @@ const InputGroup = ({ label, value, onChange, isIdr = false, icon = null }) => (
       {icon} {label}
     </label>
     <div className="relative group">
-      <input
-        type="number"
+      <NumericInput
         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none pl-9 transition-all text-sm"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
       />
       <span className="absolute left-3 top-3 text-[10px] font-bold text-slate-400 uppercase">{isIdr ? 'Rp' : ''}</span>
     </div>
   </div>
+);
+
+const NumericInput = ({ value, onChange, className, placeholder }) => (
+  <input
+    type="text"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    className={className}
+    placeholder={placeholder}
+    value={formatNumberWithSeparator(value)}
+    onChange={(e) => onChange(sanitizeNumericInput(e.target.value))}
+  />
 );
 
 export default App;
