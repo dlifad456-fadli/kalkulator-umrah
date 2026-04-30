@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Calculator,
   Hotel,
   Bus,
   Plane,
@@ -281,7 +280,7 @@ const App = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 print:hidden">
           <div>
             <h1 className="text-3xl font-bold text-emerald-800 flex items-center gap-2">
-              <Calculator className="w-8 h-8" />
+              <img src="/logo-trz.svg" alt="Logo TRZ" className="w-8 h-8 object-contain" />
               Kalkulator HPP Umrah TRZ
             </h1>
             <div className="flex flex-wrap items-center gap-3 mt-2">
