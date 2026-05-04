@@ -13,6 +13,7 @@ import {
   PlusCircle,
   CalendarDays,
   PlaneTakeoff,
+  Users,
   Trash2,
   Plus,
   Share2,
@@ -42,6 +43,7 @@ const App = () => {
     madiHotelName: 'Burj Mawaddah / Setaraf',
     makkHotelName: 'Manazil / Setaraf',
     totalDays: 16,
+    jumlahPax: 20,
     madiDays: 5,
     makkDays: 9,
     madiPriceSar: 360,
@@ -108,11 +110,12 @@ const App = () => {
   const results = useMemo(() => {
     const p = inputs;
     const r = rates;
+    const pax = Math.max(1, Number(p.jumlahPax) || 20);
 
     const cost1 = (p.madiPriceSar * p.madiDays * r.sar) / 4;
     const cost2 = (p.makkPriceSar * p.makkDays * r.sar) / 4;
-    const cost3 = (cost1 + cost2) / 20;
-    const cost4 = (p.mutoPriceSar * p.totalDays * r.sar) / 20;
+    const cost3 = (cost1 + cost2) / pax;
+    const cost4 = (p.mutoPriceSar * p.totalDays * r.sar) / pax;
     const cost5 = p.busVisaSar * r.sar;
     const cost6 = p.handlingUsd * r.usd;
     const cost7 = p.mealSar * r.sar;
@@ -142,7 +145,7 @@ const App = () => {
       cost12 +
       cost13 +
       cost14;
-    const cost15 = (subtotal1_14 + 4000000) / 20;
+    const cost15 = (subtotal1_14 + 4000000) / pax;
     const cost16 = Number(p.manasik);
     const cost17 = Number(p.transportIndo);
     const cost18 = Number(p.agentFee);
@@ -189,7 +192,8 @@ const App = () => {
     return {
       items: summaryItems,
       totalHpp,
-      totalHotelDays: Number(p.madiDays) + Number(p.makkDays)
+      totalHotelDays: Number(p.madiDays) + Number(p.makkDays),
+      pax
     };
   }, [inputs, rates]);
 
@@ -245,7 +249,7 @@ const App = () => {
 
   const handleShare = async () => {
     const shareText =
-      `RINGKASAN HPP UMRAH (${inputs.totalDays} HARI)\n` +
+      `RINGKASAN HPP UMRAH (${inputs.totalDays} HARI, ${results.pax} PAX)\n` +
       `Hotel Makkah: ${inputs.makkHotelName}\n` +
       `Hotel Madinah: ${inputs.madiHotelName}\n` +
       `Total HPP: ${formatIDR(results.totalHpp)}\n` +
@@ -293,6 +297,19 @@ const App = () => {
                   className="w-10 bg-transparent font-black text-emerald-900 focus:outline-none text-center border-b border-emerald-400/50"
                 />
                 <span className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Hari</span>
+              </div>
+
+              <div
+                className="flex items-center gap-2 bg-emerald-100/50 border border-emerald-200 px-3 py-1.5 rounded-full shadow-sm"
+                title="Membagi biaya bed mutowif, jasa mutowif, dan tour leader ke tiap jamaah"
+              >
+                <Users className="w-4 h-4 text-emerald-700" />
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Pax</span>
+                <NumericInput
+                  value={inputs.jumlahPax}
+                  onChange={(value) => handleInputChange('jumlahPax', value)}
+                  className="w-12 bg-transparent font-black text-emerald-900 focus:outline-none text-center border-b border-emerald-400/50"
+                />
               </div>
 
               <div className="flex items-center gap-1.5 text-slate-400 text-sm font-medium bg-white px-3 py-1.5 rounded-full border border-slate-200">
