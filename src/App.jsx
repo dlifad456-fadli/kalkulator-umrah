@@ -153,6 +153,7 @@ const App = () => {
     const cost20 = Number(p.profit);
 
     const totalHpp = subtotal1_14 + cost15 + cost16 + cost17 + cost18 + cost19 + cost20;
+    const hargaModal = totalHpp - cost20;
 
     const summaryItems = [
       { id: 1, label: `Madinah (${p.madiHotelName}) - ${p.madiDays}H`, value: cost1 },
@@ -192,6 +193,7 @@ const App = () => {
     return {
       items: summaryItems,
       totalHpp,
+      hargaModal,
       totalHotelDays: Number(p.madiDays) + Number(p.makkDays),
       pax
     };
@@ -600,7 +602,7 @@ const App = () => {
                         <span
                           className={`pr-2 ${
                             isLaba
-                              ? 'font-black text-white text-[13px] print:text-slate-900 uppercase'
+                              ? 'font-black text-yellow-300 text-[13px] print:text-yellow-700 uppercase'
                               : 'text-emerald-200 group-hover:text-white print:text-slate-600'
                           }`}
                         >
@@ -609,7 +611,7 @@ const App = () => {
                         <span
                           className={`tabular-nums ${
                             isLaba
-                              ? 'font-black text-white text-[13px] print:text-slate-900'
+                              ? 'font-black text-yellow-300 text-[13px] print:text-yellow-700'
                               : 'font-semibold text-white print:text-slate-900'
                           }`}
                         >
@@ -621,6 +623,11 @@ const App = () => {
                 </div>
 
                 <div className="space-y-4 border-t border-emerald-700 pt-6 print:border-slate-300">
+                  <div className="flex justify-between items-end">
+                    <span className="text-blue-300 font-medium uppercase text-[10px] print:text-blue-700">Harga Modal</span>
+                    <span className="text-lg font-extrabold text-blue-300 print:text-blue-700">{formatIDR(results.hargaModal)}</span>
+                  </div>
+
                   <div className="flex justify-between items-end">
                     <span className="text-emerald-200 font-medium uppercase text-[10px] print:text-slate-500">HPP per Pax</span>
                     <span className="text-2xl font-black text-white print:text-slate-900">{formatIDR(results.totalHpp)}</span>
