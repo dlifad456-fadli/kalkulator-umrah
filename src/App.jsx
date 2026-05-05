@@ -38,23 +38,30 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [toast, setToast] = useState(null);
+  const [hotelCompareMode, setHotelCompareMode] = useState(false);
 
   const [inputs, setInputs] = useState({
     madiHotelName: 'Burj Mawaddah / Setaraf',
     makkHotelName: 'Manazil / Setaraf',
+    compareMadiHotelName: '',
+    compareMakkHotelName: '',
     totalDays: 16,
     jumlahPax: 20,
     madiDays: 5,
     makkDays: 9,
     madiPriceSar: 360,
     makkPriceSar: 370,
+    compareMadiDays: 5,
+    compareMakkDays: 9,
+    compareMadiPriceSar: 0,
+    compareMakkPriceSar: 0,
     mutoPriceSar: 250,
     busVisaSar: 600,
     handlingUsd: 50,
     mealSar: 30,
     reserveFund: 200000,
     insuranceIndo: 200000,
-    ticketInternational: 14500000,
+    ticketInternational: 15000000,
     ticketDomestic: 0,
     equipment: 1500000,
     extraServices: [{ id: Date.now(), label: '', price: 0 }],
@@ -154,10 +161,20 @@ const App = () => {
 
     const totalHpp = subtotal1_14 + cost15 + cost16 + cost17 + cost18 + cost19 + cost20;
     const hargaModal = totalHpp - cost20;
+    const currentHotelTotal = cost1 + cost2;
+    const compareHotelMadi = (Number(p.compareMadiPriceSar) * Number(p.compareMadiDays) * r.sar) / 4;
+    const compareHotelMakk = (Number(p.compareMakkPriceSar) * Number(p.compareMakkDays) * r.sar) / 4;
+    const compareHotelTotal = compareHotelMadi + compareHotelMakk;
+    const compareHotelDiff = compareHotelTotal - currentHotelTotal;
+    const compareCost3 = compareHotelTotal / pax;
+    const compareSubtotal1_14 = subtotal1_14 - cost1 - cost2 - cost3 + compareHotelMadi + compareHotelMakk + compareCost3;
+    const compareCost15 = (compareSubtotal1_14 + 4000000) / pax;
+    const compareTotalHpp = compareSubtotal1_14 + compareCost15 + cost16 + cost17 + cost18 + cost19 + cost20;
+    const compareHargaModal = compareTotalHpp - cost20;
 
     const summaryItems = [
-      { id: 1, label: `Madinah (${p.madiHotelName}) - ${p.madiDays}H`, value: cost1 },
-      { id: 2, label: `Makkah (${p.makkHotelName}) - ${p.makkDays}H`, value: cost2 },
+      { id: 1, label: `Madinah (${p.madiHotelName}) - ${p.madiDays}N`, value: cost1 },
+      { id: 2, label: `Makkah (${p.makkHotelName}) - ${p.makkDays}N`, value: cost2 },
       { id: 3, label: 'Bed Mutowif', value: cost3 },
       { id: 4, label: 'Jasa Mutowif', value: cost4 },
       { id: 5, label: 'Bus & Visa', value: cost5 },
@@ -194,6 +211,11 @@ const App = () => {
       items: summaryItems,
       totalHpp,
       hargaModal,
+      currentHotelTotal,
+      compareHotelTotal,
+      compareHotelDiff,
+      compareTotalHpp,
+      compareHargaModal,
       totalHotelDays: Number(p.madiDays) + Number(p.makkDays),
       pax
     };
@@ -366,8 +388,19 @@ const App = () => {
                 <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
                   <Hotel className="w-5 h-5 text-emerald-600" /> Hotel Akomodasi
                 </h2>
-                <div className="text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 bg-emerald-50 text-emerald-700">
-                  <Info className="w-3 h-3" /> Total Hotel: {results.totalHotelDays} Hari
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-100 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={hotelCompareMode}
+                      onChange={(e) => setHotelCompareMode(e.target.checked)}
+                      className="accent-blue-600"
+                    />
+                    Bandingkan Harga Hotel
+                  </label>
+                  <div className="text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 bg-emerald-50 text-emerald-700">
+                    <Info className="w-3 h-3" /> Total Hotel: {results.totalHotelDays} Hari
+                  </div>
                 </div>
               </div>
 
@@ -424,6 +457,78 @@ const App = () => {
                   </div>
                 </div>
               </div>
+
+              {hotelCompareMode && (
+                <div className="mt-5 p-4 rounded-xl border border-blue-100 bg-blue-50/60">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-3">Form Hotel Pembanding</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-3">
+                    <div className="space-y-4">
+                      <label className="text-sm font-semibold text-slate-600 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-blue-600" /> Hotel Makkah Pembanding
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full p-2 bg-white border rounded-lg outline-none"
+                        placeholder="Masukan Nama Hotel"
+                        value={inputs.compareMakkHotelName}
+                        onChange={(e) => handleInputChange('compareMakkHotelName', e.target.value)}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumericInput
+                          className="w-full p-2 bg-white border rounded-lg outline-none"
+                          placeholder="Hari"
+                          value={inputs.compareMakkDays}
+                          onChange={(value) => handleInputChange('compareMakkDays', value)}
+                        />
+                        <NumericInput
+                          className="w-full p-2 bg-white border rounded-lg outline-none"
+                          placeholder="SAR"
+                          value={inputs.compareMakkPriceSar}
+                          onChange={(value) => handleInputChange('compareMakkPriceSar', value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-sm font-semibold text-slate-600 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-blue-600" /> Hotel Madinah Pembanding
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full p-2 bg-white border rounded-lg outline-none"
+                        placeholder="Masukan Nama Hotel"
+                        value={inputs.compareMadiHotelName}
+                        onChange={(e) => handleInputChange('compareMadiHotelName', e.target.value)}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumericInput
+                          className="w-full p-2 bg-white border rounded-lg outline-none"
+                          placeholder="Hari"
+                          value={inputs.compareMadiDays}
+                          onChange={(value) => handleInputChange('compareMadiDays', value)}
+                        />
+                        <NumericInput
+                          className="w-full p-2 bg-white border rounded-lg outline-none"
+                          placeholder="SAR"
+                          value={inputs.compareMadiPriceSar}
+                          onChange={(value) => handleInputChange('compareMadiPriceSar', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-semibold">
+                    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700">
+                      Hotel Saat Ini: {formatIDR(results.currentHotelTotal)}
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700">
+                      Hotel Pembanding: {formatIDR(results.compareHotelTotal)}
+                    </div>
+                    <div className="bg-white border border-blue-200 rounded-lg px-3 py-2 text-blue-700">
+                      Selisih: {formatIDR(results.compareHotelDiff)}
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -589,18 +694,25 @@ const App = () => {
                   <div className="hidden print:block text-right text-[10px] text-slate-400">TRZ Umrah Calculator</div>
                 </div>
 
+                <div className="hidden print:grid grid-cols-1 gap-1.5 text-[11px] font-medium mb-4 pb-4 border-b border-slate-300 text-slate-700">
+                  <div>Paket: {inputs.totalDays} Hari</div>
+                  <div>Pax: {results.pax} Jamaah</div>
+                  <div>Kurs SAR: {formatIDR(rates.sar)}</div>
+                  <div>Kurs USD: {formatIDR(rates.usd)}</div>
+                </div>
+
                 <div className="space-y-3 mb-8 print:space-y-2">
                   {results.items.map((item) => {
                     const isLaba = item.id === 20;
                     return (
                       <div
                         key={item.id}
-                        className={`flex justify-between text-[12px] leading-tight group ${
+                        className={`summary-row flex justify-between text-[12px] leading-tight group ${
                           isLaba ? 'pt-2 mt-2 border-t border-emerald-700/30 print:border-slate-300' : ''
                         }`}
                       >
                         <span
-                          className={`pr-2 ${
+                          className={`summary-label pr-2 ${
                             isLaba
                               ? 'font-black text-yellow-300 text-[13px] print:text-yellow-700 uppercase'
                               : 'text-emerald-200 group-hover:text-white print:text-slate-600'
@@ -609,7 +721,7 @@ const App = () => {
                           {item.label}
                         </span>
                         <span
-                          className={`tabular-nums ${
+                          className={`summary-value tabular-nums ${
                             isLaba
                               ? 'font-black text-yellow-300 text-[13px] print:text-yellow-700'
                               : 'font-semibold text-white print:text-slate-900'
@@ -623,6 +735,46 @@ const App = () => {
                 </div>
 
                 <div className="space-y-4 border-t border-emerald-700 pt-6 print:border-slate-300">
+                  {hotelCompareMode && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-300/20 space-y-2 print:bg-emerald-50 print:border-emerald-200">
+                        <h3 className="text-[10px] uppercase font-black text-emerald-200 print:text-emerald-800">
+                          Harga Hotel {inputs.makkHotelName}/{inputs.madiHotelName}
+                        </h3>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-emerald-200 print:text-emerald-700">Total Hotel</span>
+                          <span className="font-bold text-emerald-100 print:text-emerald-800">{formatIDR(results.currentHotelTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-emerald-200 print:text-emerald-700">HPP</span>
+                          <span className="font-bold text-emerald-100 print:text-emerald-800">{formatIDR(results.totalHpp)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-emerald-200 print:text-emerald-700">Modal</span>
+                          <span className="font-bold text-emerald-100 print:text-emerald-800">{formatIDR(results.hargaModal)}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-300/20 space-y-2 print:bg-blue-50 print:border-blue-200">
+                        <h3 className="text-[10px] uppercase font-black text-blue-200 print:text-blue-800">
+                          Harga Hotel {inputs.compareMakkHotelName}/{inputs.compareMadiHotelName}
+                        </h3>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-blue-200 print:text-blue-700">Total Hotel</span>
+                          <span className="font-bold text-blue-100 print:text-blue-800">{formatIDR(results.compareHotelTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-blue-200 print:text-blue-700">HPP</span>
+                          <span className="font-bold text-blue-100 print:text-blue-800">{formatIDR(results.compareTotalHpp)}</span>
+                        </div>
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-blue-200 print:text-blue-700">Modal</span>
+                          <span className="font-bold text-blue-100 print:text-blue-800">{formatIDR(results.compareHargaModal)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-end">
                     <span className="text-blue-300 font-medium uppercase text-[10px] print:text-blue-700">Harga Modal</span>
                     <span className="text-lg font-extrabold text-blue-300 print:text-blue-700">{formatIDR(results.hargaModal)}</span>
@@ -682,8 +834,8 @@ const App = () => {
       <style>{`
         @media print {
           @page {
-            margin: 1.5cm;
-            size: auto;
+            size: A4 portrait;
+            margin: 1.2cm;
           }
           body {
             background: white !important;
@@ -695,6 +847,31 @@ const App = () => {
             max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
+          }
+          .sticky {
+            top: 0 !important;
+          }
+          .print\\:w-full {
+            max-width: 720px !important;
+            margin: 0 auto !important;
+          }
+          .summary-row {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) auto !important;
+            align-items: start !important;
+            column-gap: 10px !important;
+            row-gap: 2px !important;
+            margin: 0 !important;
+          }
+          .summary-label {
+            white-space: normal !important;
+            line-height: 1.15 !important;
+            padding-right: 0 !important;
+          }
+          .summary-value {
+            white-space: nowrap !important;
+            text-align: right !important;
+            line-height: 1.15 !important;
           }
           * {
             -webkit-print-color-adjust: exact !important;
