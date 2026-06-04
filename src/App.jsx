@@ -189,7 +189,19 @@ const computePackageResults = (p, r) => {
   };
 };
 
+const LS_KEY = 'trz_umrah_calc_last_inputs_v1';
+
+const safeParseJSON = (val) => {
+  try {
+    return JSON.parse(val);
+  } catch {
+    return null;
+  }
+};
+
 const App = () => {
+  const defaultStateRef = React.useRef(null);
+
   const [rates, setRates] = useState({
     sar: 4200,
     usd: 15800
@@ -228,6 +240,106 @@ const App = () => {
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadPersistedState = () => {
+    const raw = localStorage.getItem(LS_KEY);
+    const parsed = safeParseJSON(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    return parsed;
+  };
+
+  const persistStateRef = React.useRef(null);
+
+  const persistToLocalStorage = (next) => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(next));
+    } catch (e) {
+      // ignore quota/security errors
+      console.error(e);
+    }
+  };
+
+  const debouncedPersistRef = React.useRef(null);
+
+  const schedulePersist = (next) => {
+    if (debouncedPersistRef.current) clearTimeout(debouncedPersistRef.current);
+    debouncedPersistRef.current = setTimeout(() => persistToLocalStorage(next), 350);
+  };
+
+  useEffect(() => {
+    // capture defaults once
+    if (!defaultStateRef.current) {
+      defaultStateRef.current = {
+        rates: { sar: 4200, usd: 15800 },
+        rateMode: 'auto',
+        showOptionalPackages: false,
+        inputs: {
+          totalDays: 16,
+          jumlahPax: 20,
+          mutoPriceSar: 250,
+          busVisaSar: 600,
+          handlingUsd: 50,
+          mealSar: 30,
+          reserveFund: 200000,
+          insuranceIndo: 200000,
+          ticketInternational: 18000000,
+          ticketDomestic: 0,
+          equipment: 1500000,
+          handlingIndo: 200000,
+          manasik: 300000,
+          transportIndo: 200000,
+          agentFee: 1000000,
+          tipSar: 0,
+          profit: 2000000,
+          tiers: {
+            silver: defaultTierHotel('Burj Mawaddah / Setaraf', 'Manazil / Setaraf', 360, 370),
+            gold: defaultTierHotel('Millennium / Setaraf', 'Swissotel / Setaraf', 420, 440),
+            platinum: defaultTierHotel('Pullman Zamzam / Setaraf', 'Clock Tower / Setaraf', 520, 550)
+          }
+        }
+      };
+    }
+
+    const persisted = loadPersistedState();
+    if (!persisted) return;
+
+    if (persisted.inputs) setInputs(persisted.inputs);
+    if (persisted.rates) setRates(persisted.rates);
+    if (typeof persisted.rateMode === 'string') setRateMode(persisted.rateMode);
+    if (typeof persisted.showOptionalPackages === 'boolean') setShowOptionalPackages(persisted.showOptionalPackages);
+
+    // if user last used auto mode, we can refresh rates automatically; otherwise respect manual values
+  }, []);
+
+  useEffect(() => {
+    const next = {
+      inputs,
+      rates,
+      rateMode,
+      showOptionalPackages
+    };
+
+    schedulePersist(next);
+  }, [inputs, rates, rateMode, showOptionalPackages]);
+
+  const handleResetLastInput = () => {
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch (e) {
+      console.error(e);
+    }
+
+    const d = defaultStateRef.current;
+    if (d) {
+      setRates(d.rates);
+      setRateMode(d.rateMode);
+      setShowOptionalPackages(d.showOptionalPackages);
+      setInputs(d.inputs);
+    }
+
+    showToast('Input terakhir direset.');
   };
 
   const fetchRates = async () => {
@@ -909,7 +1021,7 @@ const App = () => {
           <div className="space-y-6 lg:block print:w-full print:absolute print:top-0 print:left-0 print:m-0">
             <div className="sticky top-8 space-y-4 print:relative">
               <div className="bg-emerald-800 text-white rounded-3xl p-6 shadow-2xl border border-emerald-700/50 print:bg-white print:text-slate-900 print:shadow-none print:p-0">
-                <div className="flex flex-col gap-3 mb-6 border-b border-emerald-700 pb-4 print:border-slate-300">
+              <div className="flex flex-col gap-3 mb-6 border-b border-emerald-700 pb-4 print:border-slate-300">
                   <div className="flex justify-between items-start gap-2">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                       <Wallet className="w-6 h-6 text-emerald-300 print:text-emerald-600 shrink-0" /> Summary HPP
@@ -1034,6 +1146,15 @@ const App = () => {
                     className="flex-1 bg-emerald-700 text-white py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold transition-all active:scale-95"
                   >
                     <Share2 className="w-4 h-4" /> Share
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetLastInput}
+                    className="flex-1 bg-white text-rose-700 py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold border border-rose-200 shadow-sm transition-all active:scale-95"
+                    title="Hapus data input terakhir"
+                  >
+                    <Trash2 className="w-4 h-4" /> Reset
                   </button>
                   <button
                     onClick={handlePrint}
