@@ -590,7 +590,21 @@ const App = () => {
 
     window.focus();
     setTimeout(() => {
-      window.print();
+      if (mode === 'b2b') {
+        // Auto-generate document title for PDF filename
+        const parts = [
+          b2bInputs.b2bNamaPaket,
+          b2bInputs.b2bHotelMakkah,
+          b2bInputs.b2bHotelMadinah,
+          inputs.totalDays ? `${inputs.totalDays}Hari` : ''
+        ].filter(Boolean);
+        const prevTitle = document.title;
+        if (parts.length > 0) document.title = parts.join(' - ');
+        window.print();
+        document.title = prevTitle;
+      } else {
+        window.print();
+      }
       // Restore all elements
       saved.forEach(({ el, display }) => { el.style.display = display; });
     }, 50);
@@ -627,10 +641,21 @@ const App = () => {
       return;
     }
     setSharingB2b(true);
+
+    // Build auto title
+    const parts = [
+      b2bInputs.b2bNamaPaket,
+      b2bInputs.b2bHotelMakkah,
+      b2bInputs.b2bHotelMadinah,
+      inputs.totalDays ? `${inputs.totalDays}Hari` : ''
+    ].filter(Boolean);
+    const autoTitle = parts.length > 0 ? parts.join(' - ') : 'Perhitungan B2B';
+    const autoFilename = autoTitle.replace(/[^a-zA-Z0-9\-_. ]/g, '').replace(/\s+/g, '-').toLowerCase() + '.png';
+
     try {
       const result = await shareElementAsImage(el, {
-        filename: 'b2b-provider-trz.png',
-        title: 'Perhitungan B2B',
+        filename: autoFilename,
+        title: autoTitle,
         backgroundColor: '#3730a3'
       });
       showToast(result === 'shared' ? 'Gambar dibagikan!' : 'Gambar disimpan (unduhan).');
