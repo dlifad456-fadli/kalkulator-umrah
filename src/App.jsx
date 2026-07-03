@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { shareElementAsImage } from './shareImage';
 import {
   Hotel,
   Bus,
@@ -22,7 +23,9 @@ import {
   ChevronDown,
   ChevronUp,
   PenLine,
-  CloudDownload
+  CloudDownload,
+  Building2,
+  Calculator
 } from 'lucide-react';
 
 const OPTIONAL_PACKAGE_KEYS = new Set(['gold', 'platinum']);
@@ -211,6 +214,25 @@ const App = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [toast, setToast] = useState(null);
   const [showOptionalPackages, setShowOptionalPackages] = useState(false);
+  const [showB2B, setShowB2B] = useState(false);
+  const [sharingHpp, setSharingHpp] = useState(false);
+  const [sharingB2b, setSharingB2b] = useState(false);
+
+  // B2B state
+  const [b2bInputs, setB2bInputs] = useState({
+    b2bNamaPaket: '',
+    b2bHotelMakkah: '',
+    b2bHotelMadinah: '',
+    hargaB2B: 0,
+    b2bPerlengkapan: 0,
+    b2bAsuransiIndo: 0,
+    b2bManasik: 0,
+    b2bHandlingIndo: 0,
+    b2bCadangan: 0,
+    b2bTransportLokal: 0,
+    b2bLaba: 0,
+    paxB2B: 20
+  });
 
   const [inputs, setInputs] = useState({
     totalDays: 16,
@@ -404,6 +426,30 @@ const App = () => {
     [results.packages, showOptionalPackages]
   );
 
+  // B2B computation
+  const b2bResults = useMemo(() => {
+    const hargaB2B = Number(b2bInputs.hargaB2B) || 0;
+    const opsItems = [
+      Number(b2bInputs.b2bPerlengkapan) || 0,
+      Number(b2bInputs.b2bAsuransiIndo) || 0,
+      Number(b2bInputs.b2bManasik) || 0,
+      Number(b2bInputs.b2bHandlingIndo) || 0,
+      Number(b2bInputs.b2bCadangan) || 0,
+      Number(b2bInputs.b2bTransportLokal) || 0
+    ];
+    const hargaOpsPerl = opsItems.reduce((a, b) => a + b, 0);
+    const pax = Math.max(1, Number(b2bInputs.paxB2B) || 1);
+    const biayaTourLeader = (hargaB2B + hargaOpsPerl + 4000000) / pax;
+    const hargaModal = hargaB2B + hargaOpsPerl + biayaTourLeader;
+    const laba = Number(b2bInputs.b2bLaba) || 0;
+    const rekomendasiJual = Math.ceil((hargaModal + laba) / 100000) * 100000;
+    return { biayaTourLeader, hargaModal, hargaOpsPerl, laba, rekomendasiJual, pax };
+  }, [b2bInputs]);
+
+  const handleB2bChange = (field, value) => {
+    setB2bInputs((prev) => ({ ...prev, [field]: value }));
+  };
+
   const maxHotelDays = getMaxHotelDays(inputs.totalDays);
 
   const handleInputChange = (field, value) => {
@@ -505,39 +551,96 @@ const App = () => {
 
   const isRateManual = rateMode === 'manual';
 
-  const handlePrint = () => {
+  const handlePrint = (mode = 'hpp') => {
+    const inputCol = document.getElementById('input-column');
+    const hppCol = document.getElementById('hpp-column');
+    const header = document.querySelector('header');
+    const b2bSection = document.getElementById('b2b-section');
+    const b2bPrintArea = document.getElementById('b2b-print-area');
+
+    // Save original styles
+    const saved = [];
+    const hide = (el) => { if (el) { saved.push({ el, display: el.style.display }); el.style.display = 'none'; } };
+    const show = (el, displayVal = 'block') => { if (el) { saved.push({ el, display: el.style.display }); el.style.display = displayVal; } };
+
+    if (mode === 'hpp') {
+      hide(inputCol);
+      show(hppCol);
+    } else if (mode === 'b2b') {
+      hide(hppCol);
+      hide(header);
+      // hide all sections in input-column except B2B
+      if (inputCol) {
+        inputCol.querySelectorAll(':scope > section').forEach((sec) => {
+          if (sec.id !== 'b2b-section') {
+            hide(sec);
+          }
+        });
+        show(inputCol);
+      }
+      // In B2B section, hide inputs/description, show only print area
+      if (b2bSection) {
+        Array.from(b2bSection.children).forEach((child) => {
+          if (child.id !== 'b2b-print-area') {
+            hide(child);
+          }
+        });
+      }
+    }
+
     window.focus();
     setTimeout(() => {
       window.print();
-    }, 100);
+      // Restore all elements
+      saved.forEach(({ el, display }) => { el.style.display = display; });
+    }, 50);
   };
 
   const handleShare = async () => {
-    const tierLines = visiblePackages
-      .map(
-        (pkg) =>
-          `${pkg.label}: HPP ${formatIDR(pkg.totalHpp)} | Modal ${formatIDR(pkg.hargaModal)} | Jual ~${formatIDR(Math.ceil(pkg.totalHpp / 100000) * 100000)}`
-      )
-      .join('\n');
-    const shareText =
-      `RINGKASAN HPP UMRAH (${inputs.totalDays} HARI, ${results.pax} PAX)\n` +
-      `${tierLines}\n` +
-      `Kurs (${isRateManual ? 'Manual' : 'Update'}): SAR ${formatIDR(rates.sar)} | USD ${formatIDR(rates.usd)}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'HPP Umrah', text: shareText });
-      } catch (err) {
+    const el = document.getElementById('hpp-share-capture');
+    if (!el) {
+      showToast('Gagal membuat gambar.');
+      return;
+    }
+    setSharingHpp(true);
+    try {
+      const result = await shareElementAsImage(el, {
+        filename: 'hpp-umrah-trz.png',
+        title: 'Summary HPP Umrah',
+        backgroundColor: '#065f46'
+      });
+      showToast(result === 'shared' ? 'Gambar dibagikan!' : 'Gambar disimpan (unduhan).');
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
         console.error(err);
+        showToast('Gagal membuat gambar.');
       }
-    } else {
-      const el = document.createElement('textarea');
-      el.value = shareText;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      showToast('Ringkasan disalin ke clipboard!');
+    } finally {
+      setSharingHpp(false);
+    }
+  };
+
+  const handleB2bShare = async () => {
+    const el = document.getElementById('b2b-share-capture');
+    if (!el) {
+      showToast('Gagal membuat gambar.');
+      return;
+    }
+    setSharingB2b(true);
+    try {
+      const result = await shareElementAsImage(el, {
+        filename: 'b2b-provider-trz.png',
+        title: 'Perhitungan B2B',
+        backgroundColor: '#3730a3'
+      });
+      showToast(result === 'shared' ? 'Gambar dibagikan!' : 'Gambar disimpan (unduhan).');
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        console.error(err);
+        showToast('Gagal membuat gambar.');
+      }
+    } finally {
+      setSharingB2b(false);
     }
   };
 
@@ -684,7 +787,7 @@ const App = () => {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6 print:hidden">
+          <div className="lg:col-span-2 space-y-6 print:hidden" id="input-column">
             <section className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
                 <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
@@ -1016,11 +1119,262 @@ const App = () => {
                 <InputGroup label="Laba" value={inputs.profit} onChange={(v) => handleInputChange('profit', v)} isIdr />
               </div>
             </section>
+
+            {/* === PERHITUNGAN B2B === */}
+            <section id="b2b-section" className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl shadow-sm border border-indigo-100 overflow-hidden">
+              {/* Toggle Header */}
+              <button
+                type="button"
+                onClick={() => setShowB2B((v) => !v)}
+                className="w-full flex items-center justify-between gap-3 p-6 text-left"
+              >
+                <span className="text-lg font-semibold flex items-center gap-2 text-indigo-800">
+                  <Building2 className="w-5 h-5 text-indigo-600 shrink-0" />
+                  Perhitungan Harga B2B Provider
+                </span>
+                <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors shrink-0 ${
+                  showB2B
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'
+                }`}>
+                  {showB2B ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {showB2B ? 'Sembunyikan' : 'Tampilkan'}
+                </span>
+              </button>
+
+              {/* Collapsible Content */}
+              {showB2B && (
+              <div className="px-6 pb-6">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-indigo-700">Nama Paket</label>
+                  <input
+                    type="text"
+                    className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                    placeholder="Contoh: Umrah Silver 12 Hari"
+                    value={b2bInputs.b2bNamaPaket}
+                    onChange={(e) => handleB2bChange('b2bNamaPaket', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-indigo-700 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" /> Hotel Makkah
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                    placeholder="Nama hotel Makkah"
+                    value={b2bInputs.b2bHotelMakkah}
+                    onChange={(e) => handleB2bChange('b2bHotelMakkah', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-indigo-700 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" /> Hotel Madinah
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                    placeholder="Nama hotel Madinah"
+                    value={b2bInputs.b2bHotelMadinah}
+                    onChange={(e) => handleB2bChange('b2bHotelMadinah', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-indigo-700">Harga B2B</label>
+                  <div className="relative group">
+                    <NumericInput
+                      className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pl-9 transition-all text-sm"
+                      value={b2bInputs.hargaB2B}
+                      onChange={(v) => handleB2bChange('hargaB2B', v)}
+                    />
+                    <span className="absolute left-3 top-3 text-[10px] font-bold text-indigo-300 uppercase">Rp</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-indigo-700 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> Jumlah Pax
+                  </label>
+                  <NumericInput
+                    className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-center"
+                    value={b2bInputs.paxB2B}
+                    onChange={(v) => handleB2bChange('paxB2B', v)}
+                  />
+                </div>
+              </div>
+
+              {/* Sub-item Operasional & Perlengkapan */}
+              <div className="mb-6 bg-indigo-50/70 rounded-xl p-4 border border-indigo-200/60">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" /> Operasional & Perlengkapan
+                  </h3>
+                  <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200 tabular-nums">
+                    Total: {formatIDR(b2bResults.hargaOpsPerl)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { key: 'b2bPerlengkapan', label: 'Perlengkapan' },
+                    { key: 'b2bAsuransiIndo', label: 'Asuransi Indo' },
+                    { key: 'b2bManasik', label: 'Manasik' },
+                    { key: 'b2bHandlingIndo', label: 'Handling Indo' },
+                    { key: 'b2bCadangan', label: 'Cadangan' },
+                    { key: 'b2bTransportLokal', label: 'Transport Lokal' }
+                  ].map((item) => (
+                    <div key={item.key} className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-indigo-600">{item.label}</label>
+                      <div className="relative">
+                        <NumericInput
+                          className="w-full p-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none pl-7 transition-all text-sm"
+                          value={b2bInputs[item.key]}
+                          onChange={(v) => handleB2bChange(item.key, v)}
+                        />
+                        <span className="absolute left-2 top-2.5 text-[9px] font-bold text-indigo-300">RP</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* B2B Result Card */}
+              <div id="b2b-print-area" className="bg-indigo-800 text-white rounded-2xl p-5 shadow-lg border border-indigo-700/50 print:shadow-none">
+                <div id="b2b-share-capture">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-indigo-600/50">
+                  <Calculator className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-sm font-black uppercase tracking-wide text-indigo-100">Hasil Perhitungan B2B</h3>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                  <div className="bg-indigo-700/40 rounded-xl p-3 border border-indigo-600/30">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Harga B2B</span>
+                      <span className="text-sm font-bold text-white tabular-nums">{formatIDR(Number(b2bInputs.hargaB2B) || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Operasional & Perlengkapan</span>
+                      <span className="text-sm font-bold text-white tabular-nums">{formatIDR(b2bResults.hargaOpsPerl)}</span>
+                    </div>
+                    <div className="pl-3 space-y-0.5 mb-1 border-l-2 border-indigo-500/30">
+                      {[
+                        { label: 'Perlengkapan', val: b2bInputs.b2bPerlengkapan },
+                        { label: 'Asuransi Indo', val: b2bInputs.b2bAsuransiIndo },
+                        { label: 'Manasik', val: b2bInputs.b2bManasik },
+                        { label: 'Handling Indo', val: b2bInputs.b2bHandlingIndo },
+                        { label: 'Cadangan', val: b2bInputs.b2bCadangan },
+                        { label: 'Transport Lokal', val: b2bInputs.b2bTransportLokal }
+                      ].map((s) => (
+                        <div key={s.label} className="flex justify-between items-center">
+                          <span className="text-[9px] text-indigo-400/80">{s.label}</span>
+                          <span className="text-[10px] font-medium text-indigo-200/80 tabular-nums">{formatIDR(Number(s.val) || 0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Pax</span>
+                      <span className="text-sm font-bold text-white tabular-nums">{b2bResults.pax}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] text-indigo-300/80 font-mono bg-indigo-900/30 px-3 py-2 rounded-lg border border-indigo-700/30">
+                    Biaya TL = (B2B + Ops & Perl + 4.000.000) ÷ Pax
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-indigo-600/50 pt-4">
+                  <div className="flex justify-between items-end">
+                    <span className="text-yellow-300 font-medium uppercase text-[10px]">Biaya Tour Leader</span>
+                    <span className="text-lg font-extrabold text-yellow-200 tabular-nums">{formatIDR(b2bResults.biayaTourLeader)}</span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-emerald-300 font-medium uppercase text-[10px]">Harga Modal</span>
+                    <span className="text-xl font-black text-white tabular-nums">{formatIDR(b2bResults.hargaModal)}</span>
+                  </div>
+
+                  {/* Input Laba */}
+                  <div className="bg-indigo-700/30 rounded-xl p-3 border border-indigo-600/30">
+                    <label className="block text-[10px] font-bold text-yellow-300 uppercase tracking-wider mb-1.5">Laba / Profit</label>
+                    <div className="relative">
+                      <NumericInput
+                        className="w-full p-2.5 bg-indigo-900/40 border border-indigo-500/40 rounded-lg text-white font-bold focus:ring-2 focus:ring-yellow-400/50 outline-none pl-9 text-sm"
+                        value={b2bInputs.b2bLaba}
+                        onChange={(v) => handleB2bChange('b2bLaba', v)}
+                      />
+                      <span className="absolute left-3 top-3 text-[10px] font-bold text-indigo-400 uppercase">Rp</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 p-4 rounded-xl border border-white/10">
+                    <h4 className="text-[10px] uppercase font-black text-indigo-300 mb-1">Rekomendasi Harga Jual</h4>
+                    <p className="text-xl font-black text-white tabular-nums">
+                      {formatIDR(b2bResults.rekomendasiJual)}
+                    </p>
+                    <p className="text-[9px] text-indigo-400/70 mt-1 font-medium">
+                      = Harga Modal + Laba (dibulatkan ke atas per Rp100.000)
+                    </p>
+                  </div>
+                </div>
+                </div>
+
+                {/* B2B Action Buttons */}
+                <div className="mt-5 flex flex-wrap gap-2 border-t border-indigo-600/40 pt-4 print:hidden">
+                  <button
+                    type="button"
+                    onClick={handleB2bShare}
+                    disabled={sharingB2b}
+                    className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold transition-all active:scale-95 hover:bg-indigo-500 disabled:opacity-60"
+                  >
+                    {sharingB2b ? (
+                      <RefreshCcw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share2 className="w-4 h-4" />
+                    )}
+                    Share Gambar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePrint('b2b')}
+                    className="flex-1 bg-indigo-700/60 text-white py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold transition-all active:scale-95 hover:bg-indigo-600 border border-indigo-500/30"
+                  >
+                    <Printer className="w-4 h-4" /> Cetak / PDF
+                  </button>
+                </div>
+              </div>
+              </div>
+              )}
+            </section>
           </div>
 
-          <div className="space-y-6 lg:block print:w-full print:absolute print:top-0 print:left-0 print:m-0">
+          <div id="hpp-column" className="space-y-6 lg:block print:w-full print:absolute print:top-0 print:left-0 print:m-0">
             <div className="sticky top-8 space-y-4 print:relative">
               <div className="bg-emerald-800 text-white rounded-3xl p-6 shadow-2xl border border-emerald-700/50 print:bg-white print:text-slate-900 print:shadow-none print:p-0">
+              <button
+                type="button"
+                onClick={() => setShowOptionalPackages((v) => !v)}
+                className={`print:hidden w-full flex items-center justify-center gap-2 text-[11px] font-bold px-3 py-2 rounded-lg border transition-colors mb-4 ${
+                  showOptionalPackages
+                    ? 'bg-emerald-700/40 text-emerald-100 border-emerald-600/50 hover:bg-emerald-700/60'
+                    : 'bg-white/10 text-emerald-100 border-white/20 hover:bg-white/15'
+                }`}
+              >
+                {showOptionalPackages ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                    Sembunyikan Gold &amp; Platinum
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                    + Gold &amp; Platinum
+                  </>
+                )}
+              </button>
+
+              <div id="hpp-share-capture">
               <div className="flex flex-col gap-3 mb-6 border-b border-emerald-700 pb-4 print:border-slate-300">
                   <div className="flex justify-between items-start gap-2">
                     <h2 className="text-xl font-bold flex items-center gap-2">
@@ -1031,27 +1385,13 @@ const App = () => {
                       TRZ Umrah Calculator
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowOptionalPackages((v) => !v)}
-                    className={`print:hidden w-full flex items-center justify-center gap-2 text-[11px] font-bold px-3 py-2 rounded-lg border transition-colors ${
-                      showOptionalPackages
-                        ? 'bg-emerald-700/40 text-emerald-100 border-emerald-600/50 hover:bg-emerald-700/60'
-                        : 'bg-white/10 text-emerald-100 border-white/20 hover:bg-white/15'
-                    }`}
-                  >
-                    {showOptionalPackages ? (
-                      <>
-                        <ChevronUp className="w-3.5 h-3.5 shrink-0" />
-                        Sembunyikan Gold &amp; Platinum
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-                        + Gold &amp; Platinum
-                      </>
-                    )}
-                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5 text-[11px] font-medium mb-4 pb-4 border-b border-emerald-700/40 print:hidden text-emerald-100/90">
+                  <div>Paket: {inputs.totalDays} Hari</div>
+                  <div>Pax: {results.pax} Jamaah</div>
+                  <div>Kurs SAR: {formatIDR(rates.sar)} ({isRateManual ? 'Manual' : 'Update'})</div>
+                  <div>Kurs USD: {formatIDR(rates.usd)}</div>
                 </div>
 
                 <div className="hidden print:grid grid-cols-1 gap-1.5 text-[11px] font-medium mb-4 pb-4 border-b border-slate-300 text-slate-700">
@@ -1139,13 +1479,21 @@ const App = () => {
                     );
                   })}
                 </div>
+              </div>
 
                 <div className="mt-6 flex flex-wrap gap-2 print:hidden border-t border-emerald-700/50 pt-6">
                   <button
+                    type="button"
                     onClick={handleShare}
-                    className="flex-1 bg-emerald-700 text-white py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold transition-all active:scale-95"
+                    disabled={sharingHpp}
+                    className="flex-1 bg-emerald-700 text-white py-2.5 rounded-xl flex justify-center items-center gap-2 text-xs font-bold transition-all active:scale-95 disabled:opacity-60"
                   >
-                    <Share2 className="w-4 h-4" /> Share
+                    {sharingHpp ? (
+                      <RefreshCcw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share2 className="w-4 h-4" />
+                    )}
+                    Share Gambar
                   </button>
 
                   <button
@@ -1207,9 +1555,6 @@ const App = () => {
           body {
             background: white !important;
           }
-          .print\\:hidden {
-            display: none !important;
-          }
           .max-w-6xl {
             max-width: 100% !important;
             margin: 0 !important;
@@ -1243,6 +1588,44 @@ const App = () => {
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+          /* B2B print-friendly colors */
+          #b2b-print-area {
+            background: white !important;
+            color: #1e293b !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            max-width: 720px !important;
+            margin: 0 auto !important;
+          }
+          #b2b-print-area * {
+            color: #1e293b !important;
+          }
+          #b2b-print-area .text-indigo-300,
+          #b2b-print-area .text-indigo-400 {
+            color: #64748b !important;
+          }
+          #b2b-print-area .text-yellow-300,
+          #b2b-print-area .text-yellow-200 {
+            color: #b45309 !important;
+          }
+          #b2b-print-area .text-emerald-300 {
+            color: #047857 !important;
+          }
+          #b2b-print-area .bg-indigo-700\/40,
+          #b2b-print-area .bg-indigo-700\/30,
+          #b2b-print-area .bg-indigo-900\/30,
+          #b2b-print-area .bg-white\/10 {
+            background: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+          }
+          #b2b-print-area button {
+            display: none !important;
+          }
+          #b2b-print-area input {
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
           }
         }
         input[type='number']::-webkit-inner-spin-button {
