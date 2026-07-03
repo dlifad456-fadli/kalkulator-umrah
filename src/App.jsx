@@ -331,6 +331,7 @@ const App = () => {
     if (persisted.rates) setRates(persisted.rates);
     if (typeof persisted.rateMode === 'string') setRateMode(persisted.rateMode);
     if (typeof persisted.showOptionalPackages === 'boolean') setShowOptionalPackages(persisted.showOptionalPackages);
+    if (persisted.b2bInputs && typeof persisted.b2bInputs === 'object') setB2bInputs((prev) => ({ ...prev, ...persisted.b2bInputs }));
 
     // if user last used auto mode, we can refresh rates automatically; otherwise respect manual values
   }, []);
@@ -340,11 +341,12 @@ const App = () => {
       inputs,
       rates,
       rateMode,
-      showOptionalPackages
+      showOptionalPackages,
+      b2bInputs
     };
 
     schedulePersist(next);
-  }, [inputs, rates, rateMode, showOptionalPackages]);
+  }, [inputs, rates, rateMode, showOptionalPackages, b2bInputs]);
 
   const handleResetLastInput = () => {
     try {
@@ -359,6 +361,20 @@ const App = () => {
       setRateMode(d.rateMode);
       setShowOptionalPackages(d.showOptionalPackages);
       setInputs(d.inputs);
+      setB2bInputs({
+        b2bNamaPaket: '',
+        b2bHotelMakkah: '',
+        b2bHotelMadinah: '',
+        hargaB2B: 0,
+        b2bPerlengkapan: 0,
+        b2bAsuransiIndo: 0,
+        b2bManasik: 0,
+        b2bHandlingIndo: 0,
+        b2bCadangan: 0,
+        b2bTransportLokal: 0,
+        b2bLaba: 0,
+        paxB2B: 20
+      });
     }
 
     showToast('Input terakhir direset.');
