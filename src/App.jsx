@@ -569,19 +569,20 @@ const App = () => {
     } else if (mode === 'b2b') {
       hide(hppCol);
       hide(header);
-      // hide all sections in input-column except B2B
+      // Hide all sections in input-column except B2B
       if (inputCol) {
         inputCol.querySelectorAll(':scope > section').forEach((sec) => {
-          if (sec.id !== 'b2b-section') {
-            hide(sec);
-          }
+          if (sec.id !== 'b2b-section') hide(sec);
         });
         show(inputCol);
       }
-      // In B2B section, hide inputs/description, show only print area
+      // Force-show the collapsible content wrapper inside b2b-section
       if (b2bSection) {
-        Array.from(b2bSection.children).forEach((child) => {
-          if (child.id !== 'b2b-print-area') {
+        const collapsibleWrapper = b2bSection.querySelector(':scope > div:not(#b2b-print-area)');
+        if (collapsibleWrapper) show(collapsibleWrapper);
+        // Hide everything inside b2b-section EXCEPT b2b-print-area
+        b2bSection.querySelectorAll(':scope > *, :scope > div > *').forEach((child) => {
+          if (child.id !== 'b2b-print-area' && !child.contains(document.getElementById('b2b-print-area'))) {
             hide(child);
           }
         });
@@ -603,7 +604,16 @@ const App = () => {
         window.print();
         document.title = prevTitle;
       } else {
+        // HPP print — set document.title for PDF filename
+        const hppParts = [
+          'HPP Umrah',
+          inputs.totalDays ? `${inputs.totalDays}Hari` : '',
+          results.pax ? `${results.pax}Pax` : ''
+        ].filter(Boolean);
+        const prevTitle = document.title;
+        document.title = hppParts.join(' - ');
         window.print();
+        document.title = prevTitle;
       }
       // Restore all elements
       saved.forEach(({ el, display }) => { el.style.display = display; });
@@ -617,10 +627,20 @@ const App = () => {
       return;
     }
     setSharingHpp(true);
+
+    // Build auto title: HPP Umrah - XHari - YPax
+    const hppParts = [
+      'HPP Umrah',
+      inputs.totalDays ? `${inputs.totalDays}Hari` : '',
+      results.pax ? `${results.pax}Pax` : ''
+    ].filter(Boolean);
+    const hppAutoTitle = hppParts.join(' - ');
+    const hppAutoFilename = hppAutoTitle.replace(/[^a-zA-Z0-9\-_. ]/g, '').replace(/\s+/g, '-').toLowerCase() + '.png';
+
     try {
       const result = await shareElementAsImage(el, {
-        filename: 'hpp-umrah-trz.png',
-        title: 'Summary HPP Umrah',
+        filename: hppAutoFilename,
+        title: hppAutoTitle,
         backgroundColor: '#065f46'
       });
       showToast(result === 'shared' ? 'Gambar dibagikan!' : 'Gambar disimpan (unduhan).');
